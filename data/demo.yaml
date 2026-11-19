@@ -1,0 +1,31 @@
+plans:
+  - { code: start, name: Старт, vcpu: 1, ram_gb: 2, disk_gb: 30, price_kop: 49000 }
+  - { code: standard, name: Стандарт, vcpu: 2, ram_gb: 4, disk_gb: 60, price_kop: 99000 }
+  - { code: pro, name: Про, vcpu: 4, ram_gb: 8, disk_gb: 120, price_kop: 249000 }
+  - { code: gpu, name: GPU, vcpu: 8, ram_gb: 32, disk_gb: 240, price_kop: 1490000 }
+
+services:
+  - { code: backup, name: Бэкапы, price_kop: 25000 }
+  - { code: ipv4, name: Дополнительный IPv4, price_kop: 15000 }
+  - { code: ddos, name: Защита от DDoS, price_kop: 39000 }
+
+accounts:
+  - id: acc_1001
+    name: Студия Анны
+    email: anna@example.ru
+    phone: "+7 900 111-22-33"
+    server: { id: srv_web1, hostname: web-1, plan: standard }
+    services:
+      - { code: backup, enabled: true }
+      - { code: ipv4, enabled: false }
+
+users:
+  - { login: anna, sub: u_7c1e, name: Анна, role: owner, scopes: [servers:read, billing:read, servers:write], account: acc_1001 }
+  - { login: boris, sub: u_3b9d, name: Борис, role: developer, scopes: [servers:read, billing:read], account: acc_1001 }
+  - { login: olga, sub: u_op2, name: Ольга, role: support, scopes: [servers:read, billing:read, support:read], account: null }
+
+charges:
+  - { account: acc_1001, period: "2026-10", label: "сервер web-1, Стандарт", amount_kop: 99000 }
+  - { account: acc_1001, period: "2026-10", label: "Бэкапы", amount_kop: 25000 }
+  - { account: acc_1001, period: "2026-11", label: "сервер web-1, Стандарт", amount_kop: 99000 }
+  - { account: acc_1001, period: "2026-11", label: "Бэкапы", amount_kop: 25000 }
