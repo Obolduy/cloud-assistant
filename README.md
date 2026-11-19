@@ -39,22 +39,32 @@ LM Studio.
   дневной лимит, правила `same_plan`, `disk_downgrade`, `unknown_plan`.
 - Деньги – целые копейки, форматирование одной функцией `format_rub`.
 
+## Старт второй встречи (`workshop-2-start`)
+
+- Стенд целиком: издатель JWT и JWKS, MCP-серверы чтения `account`, `billing`, `kb` с проверкой
+  токена, база знаний с векторами, веб-чат и страница поддержки.
+- Бэкенд: сессия с токеном на каждый сервер, планировщик со схемой `Plan`, гейт, узкие агенты
+  `data` и `kb`, редактор, поток событий SSE.
+
 ## Запуск
 
-Нужны Python 3.12 и Docker.
+Нужны Python 3.12, Docker и LM Studio с моделью, которая вызывает инструменты (`google/gemma-4-e4b`),
+и эмбеддером `text-embedding-nomic-embed-text-v1.5`.
 
 ```sh
 python3.12 -m venv .venv && source .venv/bin/activate
 make install
 cp .env.example .env   # порт 5436 занят? поменяйте PG_PORT и PG_DSN
 make infra && make migrate && make seed
-make stand             # http://127.0.0.1:8100/health
+make stand             # терминал 1, чат: http://127.0.0.1:8100
+make api               # терминал 2
 ```
 
 ```sh
 make smoke G=0   # проверки стенда без модели, стенд должен быть запущен
 make lint
 make reset       # вернуть демо-данные
+make snapshot    # пересчитать векторы базы знаний после правки data/kb
 ```
 
 ## Как проверить себя

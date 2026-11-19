@@ -1,11 +1,15 @@
+import json
+
 import yaml
 
 from core import db
 from core.config import ROOT
 
 DEMO_FILE = ROOT / "data" / "demo.yaml"
+SNAPSHOT_FILE = ROOT / "kb" / "vectors.json"
 
 TABLES = (
+    "kb_chunks",
     "billing_operations",
     "plan_changes",
     "tickets",
@@ -60,7 +64,13 @@ def seed() -> dict:
                 "insert into charges(account_id, period, label, amount_kop) values (%s, %s, %s, %s)",
                 (c["account"], c["period"], c["label"], c["amount_kop"]),
             )
-    return {"accounts": len(demo["accounts"]), "users": len(demo["users"]), "plans": len(demo["plans"])}
+        articles = json.loads(SNAPSHOT_FILE.read_text(encoding="utf-8"))
+        for a in articles:
+            conn.execute(
+                "insert into kb_chunks(source, title, body, embedding) values (%s, %s, %s, %s::vector)",
+                (a["source"], a["title"], a["body"], str(a["vector"])),
+            )
+    return {"accounts": len(demo["accounts"]), "users": len(demo["users"]), "kb_chunks": len(articles)}
 
 
 if __name__ == "__main__":

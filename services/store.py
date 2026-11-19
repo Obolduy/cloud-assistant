@@ -173,3 +173,24 @@ def set_daily_quota(account_id: str, remaining: int) -> dict:
 def counts() -> dict:
     tables = ("accounts", "users", "servers", "plans", "services", "charges", "tickets")
     return {t: db.fetchone(f"select count(*) as n from {t}")["n"] for t in tables}
+
+
+def user(login: str) -> dict | None:
+    return db.fetchone("select login, sub, name, role, scopes, account_id from users where login = %s", (login,))
+
+
+def account_of(sub: str) -> str | None:
+    row = db.fetchone("select account_id from users where sub = %s", (sub,))
+    return row["account_id"] if row else None
+
+
+def search_kb(vector: list[float] | None, query: str, limit: int) -> list[dict]:
+    if vector is not None:
+        return db.fetchall(
+            "select source, title, body from kb_chunks order by embedding <=> %s::vector limit %s",
+            (str(vector), limit),
+        )
+    words = set(query.lower().split())
+    rows = db.fetchall("select source, title, body from kb_chunks")
+    rows.sort(key=lambda r: -sum(w in f"{r['title']} {r['body']}".lower() for w in words))
+    return rows[:limit]

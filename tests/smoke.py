@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import uuid
 
@@ -82,7 +83,61 @@ def group_0(c: httpx.Client) -> None:
     check("0", "reset_restores_seed", ok and not c.get("/mock/tickets").json()["tickets"])
 
 
-GROUPS = {"0": group_0}
+async def mcp_checks() -> None:
+    from mcp.shared.exceptions import MCPError
+
+    from core.mcpclient import McpPool
+    from core.tokens import Tokens
+
+    anna = McpPool(Tokens("anna"), ("account", "billing", "kb"))
+    olga = McpPool(Tokens("olga"), ("account",))
+    await anna.connect()
+    await olga.connect()
+    try:
+        names = set(anna.tool_names())
+        expected = {"get_my_account", "get_my_server", "list_plans", "list_my_charges", "search_kb"}
+        check("0", "mcp_tools", expected <= names, sorted(names))
+        server = await anna.call("account", "get_my_server")
+        check("0", "mcp_my_server", server.get("plan_code") == "standard" and server.get("price_rub") == "990 ₽")
+        charges = await anna.call("billing", "list_my_charges", {"period": "2026-11"})
+        check("0", "mcp_my_charges", charges.get("total_rub") == "1 240 ₽", charges.get("total_rub"))
+        hits = await anna.call("kb", "search_kb", {"query": "почему списали деньги за сервер"})
+        sources = [h["source"] for h in hits.get("results", [])]
+        check("0", "kb_search", "charge_rules" in sources, sources)
+        overview = await olga.call("account", "get_account_overview", {"account_id": ACCOUNT})
+        check("0", "support_overview", overview.get("plan") == "Стандарт")
+        try:
+            await anna.call("account", "get_account_overview", {"account_id": ACCOUNT})
+            check("0", "owner_overview_forbidden", False)
+        except MCPError as e:
+            check("0", "owner_overview_forbidden", e.message == "forbidden")
+    finally:
+        await anna.close()
+        await olga.close()
+
+
+def group_0_stand(c: httpx.Client) -> None:
+    from core.config import RESOURCES
+
+    r = c.post("/token", json={"resource": RESOURCES["account"], "user": "anna"})
+    token = r.json().get("access_token", "")
+    check("0", "issuer_token", r.status_code == 200 and bool(token))
+    check(
+        "0",
+        "issuer_unknown_user",
+        c.post("/token", json={"resource": RESOURCES["account"], "user": "x"}).status_code == 400,
+    )
+    check("0", "issuer_jwks", bool(c.get("/jwks.json").json().get("keys")))
+    init = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
+    headers = {"Accept": "application/json, text/event-stream"}
+    check("0", "mcp_401_without_bearer", c.post("/account/mcp", json=init, headers=headers).status_code == 401)
+    foreign = c.post("/token", json={"resource": RESOURCES["kb"], "user": "anna"}).json()["access_token"]
+    r = c.post("/account/mcp", json=init, headers=headers | {"Authorization": f"Bearer {foreign}"})
+    check("0", "mcp_401_foreign_audience", r.status_code == 401)
+    asyncio.run(mcp_checks())
+
+
+GROUPS = {"0": lambda c: (group_0(c), group_0_stand(c))}
 
 if __name__ == "__main__":
     selected = sys.argv[1:] or list(GROUPS)
